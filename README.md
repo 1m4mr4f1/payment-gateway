@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## PAYMENT-GATEWAY
 
-## Getting Started
+Eksekusi Kode untuk Menghasilkan File:
 
-First, run the development server:
+Set secrets pada Supabase CLI untuk Edge Functions:
+Bash
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+🚀 Cara Menjalankan
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+    Instalasi Dependensi:
+    Bash
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+    npm install
 
-## Learn More
+    Sinkronisasi Database:
+    Bash
 
-To learn more about Next.js, take a look at the following resources:
+    npx prisma generate
+    npx prisma db push
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    Jalankan Aplikasi Lokal:
+    Bash
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    npm run dev
 
-## Deploy on Vercel
+    Deploy Webhook ke Supabase:
+    Bash
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+    npx supabase functions deploy payment-webhook --no-verify-jwt
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+🧪 Panduan Pengujian (Postman)
+1. Inisiasi Pembayaran (Checkout)
+
+    URL: http://localhost:3000/api/checkout
+
+    Method: POST
+
+    Body (JSON):
+    JSON
+
+    {
+      "amount": 75000,
+      "payment_method": "va_bca"
+    }
+
+2. Simulasi Webhook (Callback)
+
+    URL: https://[PROJECT_ID].supabase.co/functions/v1/payment-webhook
+
+    Method: POST
+
+    Body (JSON):
+    JSON
+
+    {
+      "external_id": "ID_TRANSAKSI_DARI_STEP_1",
+      "status": "PAID",
+      "amount": 75000
+    }
+
+📝 Catatan Arsitek
+
+Penggunaan Supabase Edge Functions dalam proyek ini bertujuan untuk menangani trafik callback dari Xendit secara terpisah dari server utama Next.js. Hal ini memastikan skalabilitas tinggi dan keamanan data melalui penggunaan Service Role Key yang terisolasi dari sisi klien.# payment-gateway
