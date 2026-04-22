@@ -4,9 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {
   try {
-    // 1. Inisialisasi Supabase menggunakan variabel default yang sudah disediakan oleh platform
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Gunakan Service Role agar bisa bypass RLS
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' 
 
     if (!supabaseKey) {
       throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
@@ -14,13 +13,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // 2. Ambil payload dari Xendit
     const payload = await req.json()
-    
-    // Xendit VA menggunakan 'external_id', Xendit QRIS/PaymentRequest menggunakan 'reference_id'
     const externalId = payload.external_id || payload.reference_id
 
-    // 3. Logika penentuan status
     let newStatus = 'PENDING'
     const xenditStatus = payload.status?.toUpperCase()
 
@@ -30,26 +25,31 @@ serve(async (req) => {
        newStatus = 'FAILED'
     }
 
-    // 4. Cari transaksi di database
     const { data: trx, error: fetchError } = await supabase
       .from('transactions')
       .select('*')
       .eq('external_id', externalId)
       .single()
 
-    // Jika data tidak ditemukan (biasanya saat klik "Tes dan Simpan" di Xendit)
     if (fetchError || !trx) {
       console.log(`Transaction with ID ${externalId} not found. This is normal for Xendit Test probes.`);
       return new Response(JSON.stringify({ 
         success: false, 
         message: 'Transaction not found in database' 
       }), { 
-        status: 200, // Berikan 200 agar Xendit menganggap webhook aktif
+        status: 200, 
         headers: { "Content-Type": "application/json" } 
       })
     }
 
-    // 5. Simpan log audit
+    if (newStatus === 'SUCCESS') {
+      if (Number(payload.amount) !== Number(trx.amount)) {
+        console.error(`UNDERPAYMENT DETECTED for ${externalId}! Expected: ${trx.amount}, Received: ${payload.amount}`)
+        // Tolak status SUCCESS, ubah menjadi penanda error
+        newStatus = 'AMOUNT_MISMATCH'
+      }
+    }
+
     await supabase
       .from('transaction_logs')
       .insert({
@@ -59,13 +59,22 @@ serve(async (req) => {
         status_after: newStatus
       })
 
-    // 6. Update status transaksi utama
     const { error: updateError } = await supabase
       .from('transactions')
       .update({ status: newStatus })
       .eq('id', trx.id)
 
     if (updateError) throw updateError
+
+    if (newStatus === 'AMOUNT_MISMATCH') {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Webhook received, but underpayment detected. Transaction locked.' 
+      }), { 
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    }
 
     return new Response(JSON.stringify({ success: true }), { 
       status: 200,

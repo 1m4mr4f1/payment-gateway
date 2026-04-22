@@ -24,7 +24,6 @@ export async function POST(request: Request) {
     let paymentCode = null;
     let paymentUrl = null;
 
-    // Gunakan (as any) untuk menenangkan TypeScript
     if (payment_method === 'va_bca') {
       paymentCode = (xenditResponse.data as any).accountNumber;
     } else if (payment_method === 'qris') {
