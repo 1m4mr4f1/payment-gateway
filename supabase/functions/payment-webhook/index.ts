@@ -45,7 +45,6 @@ serve(async (req) => {
     if (newStatus === 'SUCCESS') {
       if (Number(payload.amount) !== Number(trx.amount)) {
         console.error(`UNDERPAYMENT DETECTED for ${externalId}! Expected: ${trx.amount}, Received: ${payload.amount}`)
-        // Tolak status SUCCESS, ubah menjadi penanda error
         newStatus = 'AMOUNT_MISMATCH'
       }
     }
